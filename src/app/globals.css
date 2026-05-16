@@ -24,3 +24,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@variant dark (&:where(.dark, .dark *));
+
+@keyframes btn-scroll {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+@keyframes sheen {
+  0%   { left: -75%; }
+  60%  { left: 130%; }
+  100% { left: 130%; }
+}
+@keyframes arrow-bounce {
+  0%, 100% { transform: translateX(0); }
+  50%       { transform: translateX(6px); }
+}
+@keyframes bg-scroll-right {
+  from { background-position: 0 0; }
+  to   { background-position: 62px 0; }
+}
