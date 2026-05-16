@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { styles, ORANGE, MUTED } from "@/pages/pageStyles";
+import { styles, ORANGE, MUTED } from "@/lib/pageStyles";
 
 const COOKIES = [
   { name: "Essential Cookies", type: "Always Active", desc: "These cookies are necessary for the website to function and cannot be switched off." },
