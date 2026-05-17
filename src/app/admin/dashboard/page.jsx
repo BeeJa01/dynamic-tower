@@ -43,17 +43,18 @@ const AdminDashboard = () => {
   const router = useRouter();
   const { isAdmin, checking } = useAdminGuard();
 
-  const [activeTab, setActiveTab] = useState('overview');
-  const [orders, setOrders]       = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const [activeTab, setActiveTab]   = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar toggle
+  const [orders, setOrders]         = useState([]);
+  const [customers, setCustomers]   = useState([]);
 
   // ── Products state ───────────────────────────────────────────
-  const [products, setProducts]   = useState(FOOD_ITEMS);
-  const [editingIdx, setEditingIdx] = useState(null); // null = closed, -1 = new
-  const [form, setForm]           = useState(emptyProduct());
-  const [saving, setSaving]       = useState(false);
-  const [saveMsg, setSaveMsg]     = useState('');
-  const imageInputRef             = useRef();
+  const [products, setProducts]     = useState(FOOD_ITEMS);
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [form, setForm]             = useState(emptyProduct());
+  const [saving, setSaving]         = useState(false);
+  const [saveMsg, setSaveMsg]       = useState('');
+  const imageInputRef               = useRef();
 
   // ── Real-time Firestore listeners ────────────────────────────
   useEffect(() => {
@@ -70,9 +71,9 @@ const AdminDashboard = () => {
   }, [isAdmin]);
 
   // ── Stats ────────────────────────────────────────────────────
-  const totalRevenue  = orders.reduce((s, o) => s + (o.total || 0), 0);
-  const activeOrders  = orders.filter((o) => ['paid','preparing','delivery'].includes(o.status)).length;
-  const delivered     = orders.filter((o) => o.status === 'delivered').length;
+  const totalRevenue = orders.reduce((s, o) => s + (o.total || 0), 0);
+  const activeOrders = orders.filter((o) => ['paid','preparing','delivery'].includes(o.status)).length;
+  const delivered    = orders.filter((o) => o.status === 'delivered').length;
 
   // ── Order actions ────────────────────────────────────────────
   const updateOrderStatus = async (orderId, status) => {
@@ -104,23 +105,17 @@ const AdminDashboard = () => {
 
   const closeEdit = () => { setEditingIdx(null); setSaveMsg(''); };
 
-  // Image upload → convert to base64 data URL (stored in Firestore)
-  // NOTE: for production you'd upload to Firebase Storage instead.
   const handleImageUpload = async (e, variantIdx = null) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validate size (max 1MB for Firestore)
     if (file.size > 1_000_000) {
-      alert('Image too large. Please use an image under 1MB, or use a /public path instead.');
+      alert('Image too large. Please use an image under 1MB.');
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target.result;
       if (variantIdx !== null) {
-        // Variant image
         setForm((f) => {
           const variants = f.variants.map((v, i) =>
             i === variantIdx ? { ...v, image: dataUrl } : v
@@ -128,14 +123,12 @@ const AdminDashboard = () => {
           return { ...f, variants };
         });
       } else {
-        // Main product image
         setForm((f) => ({ ...f, image: dataUrl }));
       }
     };
     reader.readAsDataURL(file);
   };
 
-  // Variant field change
   const updateVariant = (idx, key, value) => {
     setForm((f) => ({
       ...f,
@@ -148,27 +141,22 @@ const AdminDashboard = () => {
     ...f, variants: f.variants.filter((_, i) => i !== idx),
   }));
 
-  // Save product — updates local state + Firestore products collection
   const saveProduct = async () => {
     if (!form.name || !form.price) { setSaveMsg('Name and price are required.'); return; }
     setSaving(true);
     setSaveMsg('');
-
     const updated = {
       ...form,
       price:    Number(form.price),
       variants: form.variants.map((v) => ({ ...v, price: Number(v.price) || 0 })),
     };
-
     try {
       if (editingIdx === -1) {
-        // New product
         const newId   = Date.now();
         const newItem = { id: newId, ...updated };
         await setDoc(doc(db, 'products', String(newId)), newItem);
         setProducts((prev) => [...prev, newItem]);
       } else {
-        // Edit existing
         const product = products[editingIdx];
         const docRef  = doc(db, 'products', String(product.id));
         await setDoc(docRef, { id: product.id, ...updated }, { merge: true });
@@ -188,6 +176,11 @@ const AdminDashboard = () => {
 
   const handleLogout = async () => { await signOut(auth); router.push('/admin'); };
 
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setSidebarOpen(false); // close sidebar on mobile after selecting tab
+  };
+
   if (checking) return (
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
       <p className="text-gray-400">Verifying admin access...</p>
@@ -203,10 +196,44 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white">
+
+      {/* ── Mobile Header ── */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#1e293b] border-b border-gray-700
+                         flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-[#0f172a] text-white">
+            {sidebarOpen ? '✕' : '☰'}
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-[#E87121] rounded-lg flex items-center justify-center font-bold text-xs">DT</div>
+            <p className="font-bold text-white text-sm">Admin Panel</p>
+          </div>
+        </div>
+        <button onClick={handleLogout}
+          className="text-xs text-red-400 bg-red-900/20 px-3 py-1.5 rounded-lg">
+          🚪 Logout
+        </button>
+      </header>
+
+      {/* ── Mobile Sidebar Overlay ── */}
+      {sidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-20 bg-black/60"
+          onClick={() => setSidebarOpen(false)} />
+      )}
+
       <div className="flex min-h-screen">
 
         {/* ── Sidebar ── */}
-        <aside className="w-56 bg-[#1e293b] border-r border-gray-700 flex flex-col fixed h-full z-10">
+        <aside className={`
+          fixed h-full z-20 bg-[#1e293b] border-r border-gray-700 flex flex-col
+          transition-transform duration-300 ease-in-out
+          w-56
+          md:translate-x-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          top-0 md:top-0
+        `}>
+          {/* Logo - hidden on mobile (shown in header instead) */}
           <div className="p-5 border-b border-gray-700 flex items-center gap-3">
             <div className="w-9 h-9 bg-[#E87121] rounded-xl flex items-center justify-center font-bold text-sm">DT</div>
             <div>
@@ -214,9 +241,9 @@ const AdminDashboard = () => {
               <p className="text-xs text-gray-400">Admin Panel</p>
             </div>
           </div>
-          <nav className="flex-1 p-4 flex flex-col gap-1">
+          <nav className="flex-1 p-4 flex flex-col gap-1 mt-0 md:mt-0">
             {tabs.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              <button key={tab.id} onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left
                   ${activeTab === tab.id ? 'bg-[#E87121] text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}>
                 <span>{tab.icon}</span>{tab.label}
@@ -231,29 +258,14 @@ const AdminDashboard = () => {
           </div>
         </aside>
 
-        {/* ── Main ── */}
-        <main className="flex-1 md:ml-56 p-4 md:p-6">
-
-          {/* Mobile tabs */}
-          <div className="flex gap-2 mb-5 overflow-x-auto md:hidden pb-2">
-            {tabs.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap shrink-0
-                  ${activeTab === tab.id ? 'bg-[#E87121] text-white' : 'bg-[#1e293b] text-gray-400'}`}>
-                {tab.icon} {tab.label}
-              </button>
-            ))}
-            <button onClick={handleLogout}
-              className="ml-auto px-3 py-2 rounded-xl text-xs text-red-400 bg-[#1e293b] whitespace-nowrap shrink-0">
-              🚪 Logout
-            </button>
-          </div>
+        {/* ── Main Content ── */}
+        <main className="flex-1 md:ml-56 p-4 md:p-6 pt-20 md:pt-6">
 
           {/* ══ OVERVIEW ══ */}
           {activeTab === 'overview' && (
             <div>
               <h1 className="text-xl font-bold text-white mb-6">Dashboard Overview</h1>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                 {[
                   { label: 'Total Revenue', value: `₦${totalRevenue.toLocaleString()}`, icon: '💰', color: 'text-green-400' },
                   { label: 'Total Orders',  value: orders.length,   icon: '📦', color: 'text-blue-400'   },
@@ -274,12 +286,12 @@ const AdminDashboard = () => {
                 </div>
                 <div className="divide-y divide-gray-700">
                   {orders.slice(0, 5).map((order) => (
-                    <div key={order.id} className="p-4 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-white">#{order.id?.slice(0, 10)}</p>
-                        <p className="text-xs text-gray-400">{order.customerName || 'Customer'}</p>
+                    <div key={order.id} className="p-4 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white truncate">#{order.id?.slice(0, 10)}</p>
+                        <p className="text-xs text-gray-400 truncate">{order.customerName || 'Customer'}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <p className="text-sm font-bold text-[#E87121]">₦{(order.total || 0).toLocaleString()}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(order.status)}`}>
                           {statusLabel(order.status)}
@@ -303,18 +315,18 @@ const AdminDashboard = () => {
                 )}
                 {orders.map((order) => (
                   <div key={order.id} className="bg-[#1e293b] rounded-2xl p-4 border border-gray-700">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <p className="font-bold text-white text-sm">#{order.id}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{order.customerName || 'Unknown'} • {order.customerPhone || ''}</p>
-                        <p className="text-xs text-gray-500">{order.customerEmail || ''}</p>
+                    <div className="flex justify-between items-start mb-3 gap-2">
+                      <div className="min-w-0">
+                        <p className="font-bold text-white text-sm truncate">#{order.id}</p>
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{order.customerName || 'Unknown'} • {order.customerPhone || ''}</p>
+                        <p className="text-xs text-gray-500 truncate">{order.customerEmail || ''}</p>
                         {order.createdAt && (
                           <p className="text-xs text-gray-600 mt-0.5">
                             {new Date(order.createdAt.seconds * 1000).toLocaleString()}
                           </p>
                         )}
                       </div>
-                      <p className="font-bold text-[#E87121]">₦{(order.total || 0).toLocaleString()}</p>
+                      <p className="font-bold text-[#E87121] shrink-0">₦{(order.total || 0).toLocaleString()}</p>
                     </div>
                     {order.items?.length > 0 && (
                       <div className="mb-3 bg-[#0f172a] rounded-xl p-3">
@@ -363,8 +375,6 @@ const AdminDashboard = () => {
               {editingIdx !== null && (
                 <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-4 overflow-y-auto">
                   <div className="bg-[#1e293b] rounded-2xl border border-gray-700 w-full max-w-2xl my-6">
-
-                    {/* Header */}
                     <div className="flex items-center justify-between p-5 border-b border-gray-700">
                       <h2 className="font-bold text-white text-lg">
                         {editingIdx === -1 ? '➕ Add New Product' : '✏️ Edit Product'}
@@ -372,14 +382,12 @@ const AdminDashboard = () => {
                       <button onClick={closeEdit} className="text-gray-400 hover:text-white text-xl">✕</button>
                     </div>
 
-                    <div className="p-5 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
-
-                      {/* Basic fields */}
+                    <div className="p-4 md:p-5 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {[
-                          { label: 'Product Name', key: 'name',     type: 'text',   placeholder: 'e.g. Jollof Rice' },
-                          { label: 'Base Price (₦)', key: 'price',  type: 'number', placeholder: 'e.g. 3000'        },
-                          { label: 'Category',     key: 'category', type: 'text',   placeholder: 'e.g. Rice'        },
+                          { label: 'Product Name',   key: 'name',     type: 'text',   placeholder: 'e.g. Jollof Rice' },
+                          { label: 'Base Price (₦)', key: 'price',    type: 'number', placeholder: 'e.g. 3000'        },
+                          { label: 'Category',       key: 'category', type: 'text',   placeholder: 'e.g. Rice'        },
                         ].map(({ label, key, type, placeholder }) => (
                           <div key={key}>
                             <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">{label}</label>
@@ -389,8 +397,6 @@ const AdminDashboard = () => {
                                          text-white text-sm focus:outline-none focus:border-[#E87121]" />
                           </div>
                         ))}
-
-                        {/* Description full width */}
                         <div className="md:col-span-2">
                           <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Description</label>
                           <textarea rows={2} placeholder="Short description..." value={form.description}
@@ -400,13 +406,10 @@ const AdminDashboard = () => {
                         </div>
                       </div>
 
-                      {/* ── Main Image ── */}
+                      {/* Main Image */}
                       <div>
-                        <label className="text-xs text-gray-400 uppercase tracking-widest mb-2 block">
-                          Main Product Image
-                        </label>
+                        <label className="text-xs text-gray-400 uppercase tracking-widest mb-2 block">Main Product Image</label>
                         <div className="flex items-center gap-3">
-                          {/* Preview */}
                           <div className="w-20 h-20 rounded-xl bg-[#0f172a] border border-gray-700
                                           overflow-hidden shrink-0 flex items-center justify-center">
                             {form.image
@@ -415,7 +418,6 @@ const AdminDashboard = () => {
                             }
                           </div>
                           <div className="flex-1 flex flex-col gap-2">
-                            {/* Upload button */}
                             <button onClick={() => imageInputRef.current?.click()}
                               className="bg-[#0f172a] border border-dashed border-gray-600 hover:border-[#E87121]
                                          text-gray-400 hover:text-white text-xs px-3 py-2 rounded-xl transition-all text-left">
@@ -423,7 +425,6 @@ const AdminDashboard = () => {
                             </button>
                             <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
                               onChange={(e) => handleImageUpload(e)} />
-                            {/* OR type path */}
                             <input type="text" placeholder="or type /public path e.g. /food.webp"
                               value={form.image.startsWith('data:') ? '' : form.image}
                               onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))}
@@ -433,7 +434,7 @@ const AdminDashboard = () => {
                         </div>
                       </div>
 
-                      {/* ── Variants ── */}
+                      {/* Variants */}
                       <div>
                         <div className="flex items-center justify-between mb-3">
                           <label className="text-xs text-gray-400 uppercase tracking-widest">
@@ -460,39 +461,23 @@ const AdminDashboard = () => {
                                 <button onClick={() => removeVariant(i)}
                                   className="text-xs text-red-400 hover:text-red-300">✕ Remove</button>
                               </div>
-
                               <div className="grid grid-cols-2 gap-2 mb-2">
-                                <div>
-                                  <label className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Label</label>
-                                  <input type="text" placeholder="e.g. Small" value={v.label}
-                                    onChange={(e) => updateVariant(i, 'label', e.target.value)}
-                                    className="w-full px-2 py-1.5 rounded-lg bg-[#1e293b] border border-gray-700
-                                               text-white text-xs focus:outline-none focus:border-[#E87121]" />
-                                </div>
-                                <div>
-                                  <label className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Weight/Size</label>
-                                  <input type="text" placeholder="e.g. 500g" value={v.weight}
-                                    onChange={(e) => updateVariant(i, 'weight', e.target.value)}
-                                    className="w-full px-2 py-1.5 rounded-lg bg-[#1e293b] border border-gray-700
-                                               text-white text-xs focus:outline-none focus:border-[#E87121]" />
-                                </div>
-                                <div>
-                                  <label className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Price (₦)</label>
-                                  <input type="number" placeholder="e.g. 3000" value={v.price}
-                                    onChange={(e) => updateVariant(i, 'price', e.target.value)}
-                                    className="w-full px-2 py-1.5 rounded-lg bg-[#1e293b] border border-gray-700
-                                               text-white text-xs focus:outline-none focus:border-[#E87121]" />
-                                </div>
-                                <div>
-                                  <label className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Image Path</label>
-                                  <input type="text" placeholder="/image.webp" value={v.image?.startsWith('data:') ? '' : v.image}
-                                    onChange={(e) => updateVariant(i, 'image', e.target.value)}
-                                    className="w-full px-2 py-1.5 rounded-lg bg-[#1e293b] border border-gray-700
-                                               text-white text-xs focus:outline-none focus:border-[#E87121]" />
-                                </div>
+                                {[
+                                  { label: 'Label',       key: 'label',  type: 'text',   placeholder: 'e.g. Small' },
+                                  { label: 'Weight/Size', key: 'weight', type: 'text',   placeholder: 'e.g. 500g'  },
+                                  { label: 'Price (₦)',   key: 'price',  type: 'number', placeholder: 'e.g. 3000'  },
+                                  { label: 'Image Path',  key: 'image',  type: 'text',   placeholder: '/image.webp' },
+                                ].map(({ label, key, type, placeholder }) => (
+                                  <div key={key}>
+                                    <label className="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">{label}</label>
+                                    <input type={type} placeholder={placeholder}
+                                      value={key === 'image' ? (v.image?.startsWith('data:') ? '' : v.image) : v[key]}
+                                      onChange={(e) => updateVariant(i, key, e.target.value)}
+                                      className="w-full px-2 py-1.5 rounded-lg bg-[#1e293b] border border-gray-700
+                                                 text-white text-xs focus:outline-none focus:border-[#E87121]" />
+                                  </div>
+                                ))}
                               </div>
-
-                              {/* Variant image upload */}
                               <div className="flex items-center gap-2">
                                 {v.image && (
                                   <img src={v.image} alt={v.label}
@@ -511,7 +496,6 @@ const AdminDashboard = () => {
                         </div>
                       </div>
 
-                      {/* Save message */}
                       {saveMsg && (
                         <p className={`text-sm text-center font-medium
                           ${saveMsg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
@@ -519,7 +503,6 @@ const AdminDashboard = () => {
                         </p>
                       )}
 
-                      {/* Actions */}
                       <div className="flex gap-3 pt-2">
                         <button onClick={saveProduct} disabled={saving}
                           className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all

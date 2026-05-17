@@ -24,22 +24,17 @@ const AdminLogin = () => {
     setError('');
 
     try {
-      // Step 1 — Sign in with Firebase Auth
       const cred = await signInWithEmailAndPassword(auth, email, password);
-
-      // Step 2 — Check if this user has admin role in Firestore
       const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
       const userData = userDoc.data();
 
       if (!userData?.role || userData.role !== 'admin') {
-        // Not an admin — sign them out immediately
         await auth.signOut();
         setError('Access denied. You are not an admin.');
         setLoading(false);
         return;
       }
 
-      // Step 3 — Admin confirmed, go to dashboard
       router.push('/admin/dashboard');
     } catch (err) {
       const map = {
@@ -60,9 +55,13 @@ const AdminLogin = () => {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-28 h-16 bg-[#fca165] rounded-2xl flex items-center
-                          justify-center text-white text-2xl font-bold mx-auto mb-4">
-            <img src="/logo.webp" alt="DYNAMIC TOWER" className="flex items-center h-25 w-28" />
+          <div className="w-28 h-28 rounded-3xl overflow-hidden mx-auto mb-5
+                          ring-2 ring-[#E87121]/50 shadow-2xl shadow-orange-900/40">
+            <img
+              src="/logo.png"
+              alt="Dynamic Tower"
+              className="w-full h-full object-cover object-center"
+            />
           </div>
           <h1 className="text-2xl font-bold text-white">Admin Portal</h1>
           <p className="text-gray-400 text-sm mt-1">Dynamic Tower Multipurpose LTD</p>
@@ -117,8 +116,7 @@ const AdminLogin = () => {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-900/30 border border-red-500/40 rounded-xl
-                            px-4 py-3 mb-4">
+            <div className="bg-red-900/30 border border-red-500/40 rounded-xl px-4 py-3 mb-4">
               <p className="text-red-400 text-sm">{error}</p>
             </div>
           )}
