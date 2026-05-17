@@ -3,7 +3,6 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useCart } from '@/hooks/useCart';
@@ -25,6 +24,11 @@ const STEP_INDEX = {
 // ── Helper: get or create a stable order number ──────────────────
 function getOrCreateOrderNumber() {
   const STORAGE_KEY = 'dt_current_order_number';
+
+  // Server-side: localStorage doesn't exist, return a temporary number
+  if (typeof window === 'undefined') {
+    return 'DT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
 
   // If there's already one saved, reuse it
   const existing = localStorage.getItem(STORAGE_KEY);
@@ -225,7 +229,7 @@ export default function OrderConfirmation() {
                   {item.image && (
                     <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0
                                     border border-gray-100 dark:border-gray-700">
-                      <Image src={item.image} alt={item.name} fill
+                      <img src={item.image} alt={item.name} fill
                         className="object-cover" sizes="48px" />
                     </div>
                   )}
