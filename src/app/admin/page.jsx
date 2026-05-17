@@ -55,8 +55,8 @@ const AdminLogin = () => {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-42 h-28 rounded-3xl overflow-hidden mx-auto mb-5
-                          ring-2 ring-[#E87121]/50 shadow-2xl shadow-orange-900/40">
+          <div className="w-48 h-28 rounded-3xl overflow-hidden mx-auto mb-5
+                           shadow-2xl shadow-orange-900/40">
             <img
               src="/logo.webp"
               alt="Dynamic Tower"
