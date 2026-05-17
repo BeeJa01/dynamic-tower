@@ -26,32 +26,27 @@ const STEP_INDEX = {
 function getOrCreateOrderNumber() {
   const STORAGE_KEY = 'dt_current_order_number';
 
-  // Server-side: localStorage doesn't exist, return a temporary number
   if (typeof window === 'undefined') {
     return 'DT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
   }
 
-  // If there's already one saved, reuse it
   const existing = localStorage.getItem(STORAGE_KEY);
   if (existing) return existing;
 
-  // Otherwise generate a fresh one and persist it
   const fresh = 'DT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
   localStorage.setItem(STORAGE_KEY, fresh);
   return fresh;
 }
 
 export default function OrderConfirmation() {
-  const router  = useRouter();
+  const router = useRouter();
   const { user } = useAuth();
   const { cartItems, cartTotal, clearCart } = useCart();
 
-  // ── FIX: read from localStorage so re-mounts get the same number ──
   const [orderNumber] = useState(() => getOrCreateOrderNumber());
-
   const [currentStatus, setCurrentStatus] = useState('paid');
   const [orderSaved, setOrderSaved]       = useState(false);
-  const [savedItems]  = useState(cartItems);   // snapshot before clearCart
+  const [savedItems]  = useState(cartItems);
   const [savedTotal]  = useState(cartTotal);
 
   const estimatedTime = useMemo(() =>
@@ -60,23 +55,23 @@ export default function OrderConfirmation() {
     }), []
   );
 
-  // ── 1. Save order to Firestore once ─────────────────────────
-  // FIX: wait until Firebase Auth has resolved (user is not undefined)
-  // before saving, so uid is never written as null for logged-in users.
+  // ── 1. Save order — waits for user to load so uid is never null ──
   useEffect(() => {
     if (orderSaved || savedItems.length === 0) return;
-    // `undefined` means auth hasn't loaded yet — wait for it
+
+    // Wait until auth is resolved (user can be null for guests, that's fine)
+    // But if user is undefined it means auth hasn't loaded yet — wait
     if (user === undefined) return;
 
     const saveOrder = async () => {
       try {
         await setDoc(doc(db, 'orders', orderNumber), {
-          orderId:      orderNumber,
-          customerName: user?.displayName || user?.name || 'Guest',
-          customerEmail:user?.email || '',
-          customerPhone:user?.phone || '',
-          uid:          user?.uid ?? null,
-          items:        savedItems.map((item) => ({
+          orderId:       orderNumber,
+          customerName:  user?.displayName || user?.name || 'Guest',
+          customerEmail: user?.email || '',
+          customerPhone: user?.phone || '',
+          uid:           user?.uid || null,   // ✅ now always captures uid if logged in
+          items: savedItems.map((item) => ({
             id:              item.id,
             name:            item.name,
             qty:             item.qty || 1,
@@ -85,9 +80,9 @@ export default function OrderConfirmation() {
             selectedVariant: item.selectedVariant || null,
             image:           item.image || null,
           })),
-          total:        savedTotal,
-          status:       'paid',
-          createdAt:    serverTimestamp(),
+          total:     savedTotal,
+          status:    'paid',
+          createdAt: serverTimestamp(),
         });
         setOrderSaved(true);
         markAllPurchased(savedItems);
@@ -98,7 +93,7 @@ export default function OrderConfirmation() {
     };
 
     saveOrder();
-  }, [user]); // re-runs once user resolves from undefined → object/null
+  }, [user]); // ✅ re-runs when user loads, ensuring uid is captured
 
   // ── 2. Listen for real-time status updates from admin ───────
   useEffect(() => {
@@ -108,7 +103,6 @@ export default function OrderConfirmation() {
         const status = snap.data().status;
         if (status) setCurrentStatus(status);
 
-        // ── FIX: clear stored order number once delivered ──
         if (status === 'delivered') {
           localStorage.removeItem('dt_current_order_number');
         }
@@ -166,7 +160,7 @@ export default function OrderConfirmation() {
           {/* Steps */}
           <div className="flex flex-col gap-0">
             {DELIVERY_STEPS.map((step, index) => {
-              const stepIdx    = STEP_INDEX[step.id];
+              const stepIdx     = STEP_INDEX[step.id];
               const isCompleted = stepIdx < currentStepIndex;
               const isActive    = stepIdx === currentStepIndex;
               const isPending   = stepIdx > currentStepIndex;
