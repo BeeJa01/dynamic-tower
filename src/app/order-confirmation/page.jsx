@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useCart } from '@/hooks/useCart';
@@ -60,8 +61,12 @@ export default function OrderConfirmation() {
   );
 
   // ── 1. Save order to Firestore once ─────────────────────────
+  // FIX: wait until Firebase Auth has resolved (user is not undefined)
+  // before saving, so uid is never written as null for logged-in users.
   useEffect(() => {
     if (orderSaved || savedItems.length === 0) return;
+    // `undefined` means auth hasn't loaded yet — wait for it
+    if (user === undefined) return;
 
     const saveOrder = async () => {
       try {
@@ -70,7 +75,7 @@ export default function OrderConfirmation() {
           customerName: user?.displayName || user?.name || 'Guest',
           customerEmail:user?.email || '',
           customerPhone:user?.phone || '',
-          uid:          user?.uid || null,
+          uid:          user?.uid ?? null,
           items:        savedItems.map((item) => ({
             id:              item.id,
             name:            item.name,
@@ -93,7 +98,7 @@ export default function OrderConfirmation() {
     };
 
     saveOrder();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // re-runs once user resolves from undefined → object/null
 
   // ── 2. Listen for real-time status updates from admin ───────
   useEffect(() => {
@@ -229,7 +234,7 @@ export default function OrderConfirmation() {
                   {item.image && (
                     <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0
                                     border border-gray-100 dark:border-gray-700">
-                      <img src={item.image} alt={item.name} fill
+                      <Image src={item.image} alt={item.name} fill
                         className="object-cover" sizes="48px" />
                     </div>
                   )}
