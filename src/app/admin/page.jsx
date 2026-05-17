@@ -55,7 +55,7 @@ const AdminLogin = () => {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-56 h-28 rounded-3xl overflow-hidden mx-auto mb-5
+          <div className="w-64 h-32 rounded-3xl overflow-hidden mx-auto mb-5
                            shadow-2xl shadow-orange-900/40">
             <img
               src="/logo.webp"
