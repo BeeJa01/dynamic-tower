@@ -10,6 +10,22 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { db, storage, auth } from '@/lib/firebase';
 
+const statusColor = (status) => ({
+  delivered: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+  delivery:  'bg-purple-100 dark:bg-purple-900/30 text-purple-500 dark:text-purple-400',
+  preparing: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
+  paid:      'bg-blue-100 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400',
+  cancelled: 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400',
+}[status?.toLowerCase()] || 'bg-gray-100 dark:bg-gray-700 text-gray-500');
+
+const statusLabel = (status) => ({
+  delivered: '✅ Delivered',
+  delivery:  '🛵 Out for Delivery',
+  preparing: '👨‍🍳 Being Prepared',
+  paid:      '💳 Payment Confirmed',
+  cancelled: '❌ Cancelled',
+}[status?.toLowerCase()] || status || 'Processing');
+
 export default function Profile() {
   const router           = useRouter();
   const { user, logOut } = useAuth();
@@ -20,6 +36,7 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
+  const [expanded, setExpanded]   = useState(null); // expanded order id
 
   const [orderHistory, setOrderHistory]   = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -31,24 +48,31 @@ export default function Profile() {
     email: user?.email || '',
   });
 
+  // ── Fetch orders using 'uid' field (matches order-confirmation save) ──
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || activeTab !== 'orders') return;
     const fetchOrders = async () => {
       setOrdersLoading(true);
       setOrdersError(null);
       try {
-        const ordersRef = collection(db, 'orders');
-        const q = query(ordersRef, where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+        const q = query(
+          collection(db, 'orders'),
+          where('uid', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
         const snapshot = await getDocs(q);
         const fetched = snapshot.docs.map((docSnap) => {
           const d = docSnap.data();
           return {
-            id:     docSnap.id,
-            date:   d.createdAt?.toDate?.().toLocaleDateString('en-GB', {
-                      day: 'numeric', month: 'long', year: 'numeric' }) ?? d.date ?? '—',
-            items:  Array.isArray(d.items) ? d.items.map((i) => i.name ?? i.title ?? '') : [],
-            total:  d.total ?? d.totalAmount ?? d.amount ?? 0,
-            status: d.status ?? 'Processing',
+            id:        docSnap.id,
+            orderId:   d.orderId || docSnap.id,
+            date:      d.createdAt?.toDate?.().toLocaleDateString('en-GB', {
+                         day: 'numeric', month: 'long', year: 'numeric',
+                         hour: '2-digit', minute: '2-digit',
+                       }) ?? '—',
+            items:     Array.isArray(d.items) ? d.items : [],
+            total:     d.total ?? 0,
+            status:    d.status ?? 'paid',
           };
         });
         setOrderHistory(fetched);
@@ -60,7 +84,7 @@ export default function Profile() {
       }
     };
     fetchOrders();
-  }, [user?.uid]);
+  }, [user?.uid, activeTab]);
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
@@ -130,7 +154,7 @@ export default function Profile() {
     <div className="min-h-screen bg-amber-50 dark:bg-gray-950 py-8 px-4">
       <div className="max-w-lg mx-auto flex flex-col gap-5">
 
-        {/* Profile Header */}
+        {/* ── Profile Header ── */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6
                         border border-gray-100 dark:border-gray-700 shadow-sm">
           <div className="flex items-center gap-4">
@@ -150,7 +174,7 @@ export default function Profile() {
                 className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full
                            bg-[#E87121] text-white flex items-center justify-center
                            text-xs shadow-md hover:bg-orange-600 transition-all">
-                {uploading ? '...' : '📷'}
+                {uploading ? '⏳' : '📷'}
               </button>
               <input ref={fileRef} type="file" accept="image/*"
                 onChange={handlePhotoUpload} className="hidden" />
@@ -161,6 +185,11 @@ export default function Profile() {
                 {user.displayName || user.name || 'User'}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
+              {orderHistory.length > 0 && (
+                <p className="text-xs text-[#E87121] font-medium mt-0.5">
+                  {orderHistory.length} order{orderHistory.length !== 1 ? 's' : ''}
+                </p>
+              )}
             </div>
 
             <button onClick={handleLogout}
@@ -185,7 +214,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Profile Tab */}
+        {/* ── Profile Tab ── */}
         {activeTab === 'profile' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5
                           border border-gray-100 dark:border-gray-700 shadow-sm">
@@ -241,64 +270,127 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Orders Tab */}
+        {/* ── Orders Tab ── */}
         {activeTab === 'orders' && (
           <div className="flex flex-col gap-3">
             {ordersLoading ? (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-10 text-center
                               border border-gray-100 dark:border-gray-700">
-                <span className="text-3xl animate-spin inline-block mb-3">⏳</span>
+                <p className="text-3xl animate-bounce mb-3">📦</p>
                 <p className="text-gray-400 text-sm">Loading your orders…</p>
               </div>
+
             ) : ordersError ? (
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center
                               border border-red-100 dark:border-red-900">
-                <span className="text-3xl mb-3 block">⚠️</span>
+                <p className="text-3xl mb-3">⚠️</p>
                 <p className="text-red-400 text-sm">{ordersError}</p>
+                <button onClick={() => setActiveTab('orders')}
+                  className="mt-3 text-xs text-[#E87121] hover:underline">Try again</button>
               </div>
-            ) : orderHistory.length > 0 ? (
-              orderHistory.map((order) => (
-                <div key={order.id}
-                  className="bg-white dark:bg-gray-800 rounded-2xl p-4
-                             border border-gray-100 dark:border-gray-700 shadow-sm">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-bold text-gray-900 dark:text-white text-sm">#{order.id}</p>
-                      <p className="text-xs text-gray-400">{order.date}</p>
-                    </div>
-                    <span className={`text-xs px-3 py-1 rounded-full font-medium
-                      ${order.status === 'Delivered'   ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                      : order.status === 'Processing'  ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-500'
-                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-500'}`}>
-                      {order.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    {order.items.join(' • ')}
-                  </p>
-                  <div className="flex justify-between items-center pt-2
-                                  border-t border-gray-100 dark:border-gray-700">
-                    <span className="text-xs text-gray-400">Total</span>
-                    <span className="font-bold text-[#E87121]">₦{order.total.toLocaleString()}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center
+
+            ) : orderHistory.length === 0 ? (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-10 text-center
                               border border-gray-100 dark:border-gray-700">
-                <span className="text-4xl mb-3 block">📦</span>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No orders yet. Place your first order!</p>
-                <button onClick={() => router.push('/')}
-                  className="mt-4 bg-[#E87121] text-white px-5 py-2.5 rounded-full
-                             text-sm font-medium hover:bg-orange-600 transition-all">
-                  Browse Menu
+                <p className="text-5xl mb-3">🍽️</p>
+                <p className="font-bold text-gray-700 dark:text-white mb-1">No orders yet</p>
+                <p className="text-gray-400 text-sm mb-5">Place your first order and it'll appear here!</p>
+                <button onClick={() => router.push('/product')}
+                  className="bg-[#E87121] text-white px-6 py-3 rounded-full
+                             text-sm font-bold hover:bg-orange-600 transition-all">
+                  Browse Menu 🍔
                 </button>
               </div>
+
+            ) : (
+              <>
+                <p className="text-xs text-gray-400 px-1">{orderHistory.length} order{orderHistory.length !== 1 ? 's' : ''} found</p>
+                {orderHistory.map((order) => (
+                  <div key={order.id}
+                    className="bg-white dark:bg-gray-800 rounded-2xl
+                               border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+
+                    {/* Order Header */}
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-white text-sm">
+                            #{order.orderId}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">{order.date}</p>
+                        </div>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0
+                                          ${statusColor(order.status)}`}>
+                          {statusLabel(order.status)}
+                        </span>
+                      </div>
+
+                      {/* Item names preview */}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-3">
+                        {order.items.map((i) => i.name).join(' • ') || 'No items'}
+                      </p>
+
+                      <div className="flex justify-between items-center">
+                        <span className="font-black text-[#E87121] text-base">
+                          ₦{order.total.toLocaleString()}
+                        </span>
+                        <button
+                          onClick={() => setExpanded(expanded === order.id ? null : order.id)}
+                          className="text-xs text-gray-400 hover:text-[#E87121] transition-colors font-medium">
+                          {expanded === order.id ? 'Hide details ▲' : 'View details ▼'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expanded Items */}
+                    {expanded === order.id && (
+                      <div className="border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4">
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">
+                          Items Ordered
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {order.items.map((item, i) => (
+                            <div key={i} className="flex justify-between items-center">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {item.image && (
+                                  <img src={item.image} alt={item.name}
+                                    className="w-9 h-9 rounded-lg object-cover shrink-0
+                                               border border-gray-200 dark:border-gray-700" />
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
+                                    {item.name}
+                                  </p>
+                                  {item.selectedVariant && (
+                                    <p className="text-xs text-gray-400">{item.selectedVariant}</p>
+                                  )}
+                                  <p className="text-xs text-gray-400">Qty: {item.qty}</p>
+                                </div>
+                              </div>
+                              <p className="text-sm font-bold text-[#E87121] shrink-0 ml-2">
+                                ₦{item.total?.toLocaleString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Reorder Button */}
+                        <button onClick={() => router.push('/product')}
+                          className="w-full mt-4 py-2.5 rounded-xl bg-orange-50 dark:bg-orange-900/20
+                                     text-[#E87121] text-sm font-bold border border-orange-200
+                                     dark:border-orange-700 hover:bg-orange-100 transition-all">
+                          🔄 Reorder
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </>
             )}
           </div>
         )}
 
-        {/* Address Tab */}
+        {/* ── Address Tab ── */}
         {activeTab === 'address' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-5
                           border border-gray-100 dark:border-gray-700 shadow-sm">
@@ -312,11 +404,11 @@ export default function Profile() {
             {savedAddress ? (
               <div className="flex flex-col gap-2">
                 {[
-                  { label: 'Name',     value: savedAddress.fullName },
-                  { label: 'Phone',    value: savedAddress.phone },
-                  { label: 'State',    value: savedAddress.state },
-                  { label: 'City',     value: savedAddress.city },
-                  { label: 'Address',  value: savedAddress.address },
+                  { label: 'Name',     value: savedAddress.fullName  },
+                  { label: 'Phone',    value: savedAddress.phone     },
+                  { label: 'State',    value: savedAddress.state     },
+                  { label: 'City',     value: savedAddress.city      },
+                  { label: 'Address',  value: savedAddress.address   },
                   { label: 'Landmark', value: savedAddress.landmark || '—' },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between py-2.5
