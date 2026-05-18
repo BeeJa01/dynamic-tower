@@ -32,8 +32,8 @@ export const FOOD_ITEMS = [
     variants: [
       { label: 'Small', weight: '150g',  price: 1500, image: '/chinchin1500.webp' },
       { label: 'Jar', weight: '500g', price: 3000, image: '/chinchinthreek.webp' },
-      { label: 'Medium', weight: '800g', price: 6000, image: '/chinchin30k.webp' },
-      { label: 'Big', weight: '1kg', price: 10000, image: '/chinchin30k.webp' },
+      { label: 'Medium', weight: '800g', price: 6000, image: '/chinchin15k.webp' },
+      { label: 'Big', weight: '1kg', price: 10000, image: '/chinchin15k.webp' },
       { label: 'Extra Big', weight: '1.5kg', price: 15000, image: '/chinchin15k.webp' },
       { label: 'Family label', weight: '2.0kg', price: 30000, image: '/chinchin30k.webp' },
       { label: 'Ultra label', weight: '3kg', price: 70000, image: '/chinchin30k.webp' },

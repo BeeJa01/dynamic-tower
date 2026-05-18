@@ -189,6 +189,7 @@ export default function ProductDetails({ params }) {
         <div className="relative w-full rounded-3xl overflow-hidden bg-white dark:bg-gray-800
                         border border-gray-100 dark:border-gray-700 shadow-sm">
           <img
+            key={selectedVariant?.label}
             src={selectedVariant?.image || product.image}
             alt={product.name}
             className="w-full h-72 object-cover transition-all duration-500"
