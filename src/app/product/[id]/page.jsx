@@ -8,6 +8,71 @@ import { FOOD_ITEMS } from '@/data/FoodData';
 import { useCart } from '@/hooks/useCart';
 import ReviewSection from '@/components/ReviewSection';
 
+// ── Related Products Component ───────────────────────────────────
+function RelatedProducts({ currentProduct }) {
+  const router = useRouter();
+
+  const related = FOOD_ITEMS.filter(
+    (item) => item.category === currentProduct.category && item.id !== currentProduct.id
+  ).slice(0, 6);
+
+  if (related.length === 0) return null;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5
+                    border border-gray-100 dark:border-gray-700 shadow-sm">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">
+        You might also like 🍽️
+      </p>
+
+      <div className="flex flex-col gap-3">
+        {related.map((item) => {
+          const displayPrice = item.cakeVariantType === 'matrix'
+            ? item.cakePrices[item.cakeLayers[0].key][item.cakeSizes[0]]
+            : (item.variants?.[0]?.price || item.price);
+
+          return (
+            <button
+              key={item.id}
+              onClick={() => router.push(`/product/${item.id}`)}
+              className="flex items-center gap-3 p-3 rounded-2xl border border-gray-100
+                         dark:border-gray-700 bg-gray-50 dark:bg-gray-900
+                         hover:border-orange-200 dark:hover:border-orange-700
+                         active:scale-[0.98] transition-all duration-200 text-left w-full"
+            >
+              {/* Thumbnail */}
+              <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-200 dark:bg-gray-700">
+                <img
+                  src={item.variants?.[0]?.image || item.image}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black text-gray-900 dark:text-white
+                               leading-tight truncate mb-1">
+                  {item.name}
+                </p>
+                <p className="text-[10px] text-gray-400 truncate mb-1.5">
+                  {item.description?.slice(0, 55)}…
+                </p>
+                <span className="text-sm font-black text-orange-500">
+                  from ₦{Number(displayPrice)?.toLocaleString()}
+                </span>
+              </div>
+
+              {/* Arrow */}
+              <span className="text-orange-400 text-lg shrink-0">›</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Share Buttons Component ──────────────────────────────────────
 function ShareButtons({ product }) {
   const [copied, setCopied] = useState(false);
@@ -266,11 +331,11 @@ function CakeVariantSelector({ product, onPriceChange }) {
         </span>
       </div>
 
-      {/* Notes
+      {/* Notes */}
       <p className="text-[10px] text-gray-400 leading-relaxed">
         🎂 Vanilla, strawberry or red velvet as standard. Other flavours (chocolate, fruit cake, etc.) attract extra cost.
         Fondant & buttercream icing extra. Delivery, design complexity & rush orders extra.
-      </p>  */}
+      </p>
     </div>
   );
 }
@@ -501,6 +566,9 @@ export default function ProductDetails({ params }) {
 
         {/* Reviews */}
         <ReviewSection productId={product.id} />
+
+        {/* Related Products */}
+        <RelatedProducts currentProduct={product} />
 
       </div>
     </div>
