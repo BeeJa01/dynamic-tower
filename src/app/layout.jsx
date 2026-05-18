@@ -2,6 +2,7 @@ import './globals.css';
 import { AuthProvider } from '@/context/AuthProvider';
 import { CartProvider } from '@/context/CartProvider';
 import ConditionalLayout from '@/components/ConditionalLayout';
+import WhatsAppButton from '@/components/WhatsAppButton';
 
 export const metadata = {
   title: 'DYNAMIC TOWER MULTIPURPOSE LTD',
@@ -19,6 +20,7 @@ export default function RootLayout({ children }) {
             </ConditionalLayout>
           </CartProvider>
         </AuthProvider>
+        <WhatsAppButton />
       </body>
     </html>
   );

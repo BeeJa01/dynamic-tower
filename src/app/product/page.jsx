@@ -23,22 +23,25 @@ const FoodCardRating = ({ productId }) => {
 
 export default function ProductCard() {
   const [activeCategory, setActiveCategory] = useState("All");
-  const [items, setItems]   = useState(FOOD_ITEMS); // start with local data instantly
+  const [items, setItems]     = useState(FOOD_ITEMS);
   const [loading, setLoading] = useState(true);
 
-  // ── Fetch from Firestore, fallback to FoodData if empty ─────
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'products'), (snap) => {
-      if (!snap.empty) {
-        // Firestore has products — use them (admin-managed)
-        const firestoreItems = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id }));
-        // Sort by id to keep consistent order
-        firestoreItems.sort((a, b) => Number(a.id) - Number(b.id));
-        setItems(firestoreItems);
-      } else {
-        // No products in Firestore yet — use local FoodData
-        setItems(FOOD_ITEMS);
-      }
+      // Get all Firestore products
+      const firestoreProducts = snap.docs.map((d) => ({ ...d.data(), id: d.data().id || d.id }));
+
+      // IDs of hardcoded products (1–20)
+      const hardcodedIds = new Set(FOOD_ITEMS.map((p) => String(p.id)));
+
+      // Only keep Firestore products that are NOT already in FOOD_ITEMS
+      const newOnly = firestoreProducts.filter((p) => !hardcodedIds.has(String(p.id)));
+
+      // Merge: hardcoded 20 first, then any newly added ones from admin
+      const merged = [...FOOD_ITEMS, ...newOnly];
+      merged.sort((a, b) => Number(a.id) - Number(b.id));
+
+      setItems(merged);
       setLoading(false);
     });
     return unsub;
@@ -89,7 +92,6 @@ export default function ProductCard() {
       {/* Product Grid */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {loading ? (
-          // Loading skeleton
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {[...Array(10)].map((_, i) => (
               <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100
@@ -110,21 +112,17 @@ export default function ProductCard() {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100
                                 dark:border-gray-700 shadow-sm hover:shadow-xl hover:-translate-y-1
                                 transition-all duration-300 overflow-hidden">
-                  {/* Image */}
                   <div className="h-40 overflow-hidden relative">
                     <img
                       src={item.image}
                       alt={item.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-400"
                     />
-                    {/* Price badge */}
                     <div className="absolute bottom-2 right-2 bg-white dark:bg-gray-900 text-orange-500
                                     font-black text-xs px-2 py-0.5 rounded-full shadow-sm">
                       ₦{item.price?.toLocaleString?.() ?? item.price}
                     </div>
                   </div>
-
-                  {/* Info */}
                   <div className="p-3">
                     <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-tight mb-1">
                       {item.name}

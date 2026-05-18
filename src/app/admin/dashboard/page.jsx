@@ -4,14 +4,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc
+  collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc, getDocs
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { useAdminGuard } from '@/hooks/useAdminGuard';
 import { FOOD_ITEMS } from '@/data/FoodData';
 
-// ── Status config ────────────────────────────────────────────────
 const ORDER_STATUSES = [
   { value: 'paid',      label: 'Payment Confirmed' },
   { value: 'preparing', label: 'Being Prepared'    },
@@ -31,51 +30,72 @@ const statusColor = (status) => ({
 const statusLabel = (status) =>
   ORDER_STATUSES.find((s) => s.value === status)?.label || status || 'Unknown';
 
-// ── Empty product template ───────────────────────────────────────
 const emptyProduct = () => ({
   name: '', price: '', category: '', description: '', image: '', variants: [],
 });
-
 const emptyVariant = () => ({ label: '', weight: '', price: '', image: '' });
 
-// ════════════════════════════════════════════════════════════════
 const AdminDashboard = () => {
   const router = useRouter();
   const { isAdmin, checking } = useAdminGuard();
 
-  const [activeTab, setActiveTab]   = useState('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar toggle
-  const [orders, setOrders]         = useState([]);
-  const [customers, setCustomers]   = useState([]);
+  const [activeTab, setActiveTab]     = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [orders, setOrders]           = useState([]);
+  const [customers, setCustomers]     = useState([]);
 
-  // ── Products state ───────────────────────────────────────────
-  const [products, setProducts]     = useState(FOOD_ITEMS);
-  const [editingIdx, setEditingIdx] = useState(null);
-  const [form, setForm]             = useState(emptyProduct());
-  const [saving, setSaving]         = useState(false);
-  const [saveMsg, setSaveMsg]       = useState('');
-  const imageInputRef               = useRef();
+  // ── Products: merge FOOD_ITEMS + Firestore ───────────────────
+  const [products, setProducts]       = useState(FOOD_ITEMS);
+  const [editingIdx, setEditingIdx]   = useState(null);
+  const [form, setForm]               = useState(emptyProduct());
+  const [saving, setSaving]           = useState(false);
+  const [saveMsg, setSaveMsg]         = useState('');
+  const imageInputRef                 = useRef();
 
-  // ── Real-time Firestore listeners ────────────────────────────
+  // ── Load & merge products from Firestore with FOOD_ITEMS ─────
   useEffect(() => {
     if (!isAdmin) return;
-    const u1 = onSnapshot(collection(db, 'orders'), (snap) => {
+
+    const mergeProducts = (firestoreDocs) => {
+      // Firestore products added via admin (id is timestamp string)
+      const firestoreProducts = firestoreDocs.map((d) => ({ ...d.data(), id: d.id }));
+
+      // IDs already in FOOD_ITEMS (numbers 1–20)
+      const hardcodedIds = new Set(FOOD_ITEMS.map((p) => String(p.id)));
+
+      // Only add Firestore products that are NOT in FOOD_ITEMS
+      const newOnly = firestoreProducts.filter((p) => !hardcodedIds.has(String(p.id)));
+
+      // Merge: hardcoded first, then new Firestore ones
+      setProducts([...FOOD_ITEMS, ...newOnly]);
+    };
+
+    // Real-time listener for products
+    const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
+      mergeProducts(snap.docs);
+    });
+
+    // Real-time listener for orders
+    const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setOrders(data);
     });
-    const u2 = onSnapshot(collection(db, 'users'), (snap) => {
-      setCustomers(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.role !== 'admin'));
+
+    // Real-time listener for customers
+    const unsubCustomers = onSnapshot(collection(db, 'users'), (snap) => {
+      setCustomers(
+        snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.role !== 'admin')
+      );
     });
-    return () => { u1(); u2(); };
+
+    return () => { unsubProducts(); unsubOrders(); unsubCustomers(); };
   }, [isAdmin]);
 
-  // ── Stats ────────────────────────────────────────────────────
   const totalRevenue = orders.reduce((s, o) => s + (o.total || 0), 0);
   const activeOrders = orders.filter((o) => ['paid','preparing','delivery'].includes(o.status)).length;
   const delivered    = orders.filter((o) => o.status === 'delivered').length;
 
-  // ── Order actions ────────────────────────────────────────────
   const updateOrderStatus = async (orderId, status) => {
     await updateDoc(doc(db, 'orders', orderId), { status });
   };
@@ -84,7 +104,6 @@ const AdminDashboard = () => {
     await deleteDoc(doc(db, 'orders', orderId));
   };
 
-  // ── Product editor helpers ───────────────────────────────────
   const openEdit = (idx) => {
     if (idx === -1) {
       setForm(emptyProduct());
@@ -108,20 +127,15 @@ const AdminDashboard = () => {
   const handleImageUpload = async (e, variantIdx = null) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 1_000_000) {
-      alert('Image too large. Please use an image under 1MB.');
-      return;
-    }
+    if (file.size > 1_000_000) { alert('Image too large. Please use an image under 1MB.'); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target.result;
       if (variantIdx !== null) {
-        setForm((f) => {
-          const variants = f.variants.map((v, i) =>
-            i === variantIdx ? { ...v, image: dataUrl } : v
-          );
-          return { ...f, variants };
-        });
+        setForm((f) => ({
+          ...f,
+          variants: f.variants.map((v, i) => i === variantIdx ? { ...v, image: dataUrl } : v),
+        }));
       } else {
         setForm((f) => ({ ...f, image: dataUrl }));
       }
@@ -129,12 +143,11 @@ const AdminDashboard = () => {
     reader.readAsDataURL(file);
   };
 
-  const updateVariant = (idx, key, value) => {
+  const updateVariant = (idx, key, value) =>
     setForm((f) => ({
       ...f,
       variants: f.variants.map((v, i) => i === idx ? { ...v, [key]: value } : v),
     }));
-  };
 
   const addVariant    = () => setForm((f) => ({ ...f, variants: [...f.variants, emptyVariant()] }));
   const removeVariant = (idx) => setForm((f) => ({
@@ -152,17 +165,15 @@ const AdminDashboard = () => {
     };
     try {
       if (editingIdx === -1) {
+        // New product — save to Firestore
         const newId   = Date.now();
         const newItem = { id: newId, ...updated };
         await setDoc(doc(db, 'products', String(newId)), newItem);
-        setProducts((prev) => [...prev, newItem]);
+        // onSnapshot will auto-update products list
       } else {
         const product = products[editingIdx];
-        const docRef  = doc(db, 'products', String(product.id));
-        await setDoc(docRef, { id: product.id, ...updated }, { merge: true });
-        setProducts((prev) =>
-          prev.map((p, i) => i === editingIdx ? { ...p, ...updated } : p)
-        );
+        // Save to Firestore (works for both hardcoded and new products)
+        await setDoc(doc(db, 'products', String(product.id)), { id: product.id, ...updated }, { merge: true });
       }
       setSaveMsg('✅ Saved successfully!');
       setTimeout(closeEdit, 1200);
@@ -174,12 +185,8 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleLogout = async () => { await signOut(auth); router.push('/admin'); };
-
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
-    setSidebarOpen(false); // close sidebar on mobile after selecting tab
-  };
+  const handleLogout    = async () => { await signOut(auth); router.push('/admin'); };
+  const handleTabChange = (tabId) => { setActiveTab(tabId); setSidebarOpen(false); };
 
   if (checking) return (
     <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
@@ -197,7 +204,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-[#0f172a] text-white">
 
-      {/* ── Mobile Header ── */}
+      {/* Mobile Header */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-30 bg-[#1e293b] border-b border-gray-700
                          flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
@@ -210,30 +217,21 @@ const AdminDashboard = () => {
             <p className="font-bold text-white text-sm">Admin Panel</p>
           </div>
         </div>
-        <button onClick={handleLogout}
-          className="text-xs text-red-400 bg-red-900/20 px-3 py-1.5 rounded-lg">
+        <button onClick={handleLogout} className="text-xs text-red-400 bg-red-900/20 px-3 py-1.5 rounded-lg">
           🚪 Logout
         </button>
       </header>
 
-      {/* ── Mobile Sidebar Overlay ── */}
       {sidebarOpen && (
-        <div className="md:hidden fixed inset-0 z-20 bg-black/60"
-          onClick={() => setSidebarOpen(false)} />
+        <div className="md:hidden fixed inset-0 z-20 bg-black/60" onClick={() => setSidebarOpen(false)} />
       )}
 
       <div className="flex min-h-screen">
 
-        {/* ── Sidebar ── */}
-        <aside className={`
-          fixed h-full z-20 bg-[#1e293b] border-r border-gray-700 flex flex-col
-          transition-transform duration-300 ease-in-out
-          w-56
-          md:translate-x-0
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          top-0 md:top-0
-        `}>
-          {/* Logo - hidden on mobile (shown in header instead) */}
+        {/* Sidebar */}
+        <aside className={`fixed h-full z-20 bg-[#1e293b] border-r border-gray-700 flex flex-col
+          transition-transform duration-300 ease-in-out w-56 md:translate-x-0 top-0
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="p-5 border-b border-gray-700 flex items-center gap-3">
             <div className="w-9 h-9 bg-[#E87121] rounded-xl flex items-center justify-center font-bold text-sm">DT</div>
             <div>
@@ -241,7 +239,7 @@ const AdminDashboard = () => {
               <p className="text-xs text-gray-400">Admin Panel</p>
             </div>
           </div>
-          <nav className="flex-1 p-4 flex flex-col gap-1 mt-0 md:mt-0">
+          <nav className="flex-1 p-4 flex flex-col gap-1">
             {tabs.map((tab) => (
               <button key={tab.id} onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left
@@ -258,10 +256,9 @@ const AdminDashboard = () => {
           </div>
         </aside>
 
-        {/* ── Main Content ── */}
         <main className="flex-1 md:ml-56 p-4 md:p-6 pt-20 md:pt-6">
 
-          {/* ══ OVERVIEW ══ */}
+          {/* OVERVIEW */}
           {activeTab === 'overview' && (
             <div>
               <h1 className="text-xl font-bold text-white mb-6">Dashboard Overview</h1>
@@ -305,7 +302,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* ══ ORDERS ══ */}
+          {/* ORDERS */}
           {activeTab === 'orders' && (
             <div>
               <h1 className="text-xl font-bold text-white mb-6">Orders ({orders.length})</h1>
@@ -360,7 +357,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* ══ PRODUCTS ══ */}
+          {/* PRODUCTS */}
           {activeTab === 'products' && (
             <div>
               <div className="flex items-center justify-between mb-6">
@@ -371,7 +368,7 @@ const AdminDashboard = () => {
                 </button>
               </div>
 
-              {/* ── Product Editor Modal ── */}
+              {/* Product Editor Modal */}
               {editingIdx !== null && (
                 <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center p-4 overflow-y-auto">
                   <div className="bg-[#1e293b] rounded-2xl border border-gray-700 w-full max-w-2xl my-6">
@@ -381,7 +378,6 @@ const AdminDashboard = () => {
                       </h2>
                       <button onClick={closeEdit} className="text-gray-400 hover:text-white text-xl">✕</button>
                     </div>
-
                     <div className="p-4 md:p-5 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {[
@@ -410,8 +406,7 @@ const AdminDashboard = () => {
                       <div>
                         <label className="text-xs text-gray-400 uppercase tracking-widest mb-2 block">Main Product Image</label>
                         <div className="flex items-center gap-3">
-                          <div className="w-20 h-20 rounded-xl bg-[#0f172a] border border-gray-700
-                                          overflow-hidden shrink-0 flex items-center justify-center">
+                          <div className="w-20 h-20 rounded-xl bg-[#0f172a] border border-gray-700 overflow-hidden shrink-0 flex items-center justify-center">
                             {form.image
                               ? <img src={form.image} alt="preview" className="w-full h-full object-cover" />
                               : <span className="text-gray-600 text-xs text-center px-1">No image</span>
@@ -437,29 +432,23 @@ const AdminDashboard = () => {
                       {/* Variants */}
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <label className="text-xs text-gray-400 uppercase tracking-widest">
-                            Variants ({form.variants.length})
-                          </label>
+                          <label className="text-xs text-gray-400 uppercase tracking-widest">Variants ({form.variants.length})</label>
                           <button onClick={addVariant}
-                            className="text-xs bg-[#E87121]/20 text-[#E87121] border border-[#E87121]/30
-                                       px-3 py-1 rounded-lg hover:bg-[#E87121]/30 transition-all">
+                            className="text-xs bg-[#E87121]/20 text-[#E87121] border border-[#E87121]/30 px-3 py-1 rounded-lg hover:bg-[#E87121]/30 transition-all">
                             + Add Variant
                           </button>
                         </div>
-
                         {form.variants.length === 0 && (
                           <p className="text-xs text-gray-600 text-center py-4 bg-[#0f172a] rounded-xl">
                             No variants yet. Click `+ Add Variant` to add sizes or options.
                           </p>
                         )}
-
                         <div className="flex flex-col gap-3">
                           {form.variants.map((v, i) => (
                             <div key={i} className="bg-[#0f172a] rounded-xl p-3 border border-gray-700">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-xs font-bold text-gray-300">Variant {i + 1}</p>
-                                <button onClick={() => removeVariant(i)}
-                                  className="text-xs text-red-400 hover:text-red-300">✕ Remove</button>
+                                <button onClick={() => removeVariant(i)} className="text-xs text-red-400 hover:text-red-300">✕ Remove</button>
                               </div>
                               <div className="grid grid-cols-2 gap-2 mb-2">
                                 {[
@@ -480,15 +469,13 @@ const AdminDashboard = () => {
                               </div>
                               <div className="flex items-center gap-2">
                                 {v.image && (
-                                  <img src={v.image} alt={v.label}
-                                    className="w-10 h-10 rounded-lg object-cover border border-gray-700 shrink-0" />
+                                  <img src={v.image} alt={v.label} className="w-10 h-10 rounded-lg object-cover border border-gray-700 shrink-0" />
                                 )}
                                 <label className="flex-1 cursor-pointer bg-[#1e293b] border border-dashed border-gray-600
                                                   hover:border-[#E87121] text-gray-500 hover:text-gray-300
                                                   text-xs px-2 py-1.5 rounded-lg transition-all">
                                   📁 Upload variant image
-                                  <input type="file" accept="image/*" className="hidden"
-                                    onChange={(e) => handleImageUpload(e, i)} />
+                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, i)} />
                                 </label>
                               </div>
                             </div>
@@ -497,8 +484,7 @@ const AdminDashboard = () => {
                       </div>
 
                       {saveMsg && (
-                        <p className={`text-sm text-center font-medium
-                          ${saveMsg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
+                        <p className={`text-sm text-center font-medium ${saveMsg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
                           {saveMsg}
                         </p>
                       )}
@@ -506,8 +492,7 @@ const AdminDashboard = () => {
                       <div className="flex gap-3 pt-2">
                         <button onClick={saveProduct} disabled={saving}
                           className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all
-                            ${saving ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                     : 'bg-[#E87121] hover:bg-orange-600 text-white'}`}>
+                            ${saving ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#E87121] hover:bg-orange-600 text-white'}`}>
                           {saving ? 'Saving...' : '💾 Save Product'}
                         </button>
                         <button onClick={closeEdit}
@@ -523,23 +508,19 @@ const AdminDashboard = () => {
               {/* Product grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {products.map((product, i) => (
-                  <div key={product.id}
-                    className="bg-[#1e293b] rounded-2xl p-4 border border-gray-700 flex items-center gap-4">
+                  <div key={product.id} className="bg-[#1e293b] rounded-2xl p-4 border border-gray-700 flex items-center gap-4">
                     <img src={product.image} alt={product.name}
                       className="w-16 h-16 rounded-xl object-cover bg-gray-700 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-white text-sm truncate">{product.name}</p>
                       <p className="text-xs text-gray-400">{product.category}</p>
-                      <p className="text-sm font-bold text-[#E87121] mt-0.5">
-                        ₦{product.price?.toLocaleString()}
-                      </p>
+                      <p className="text-sm font-bold text-[#E87121] mt-0.5">₦{product.price?.toLocaleString()}</p>
                       <p className="text-xs text-gray-600 mt-0.5">
                         {product.variants?.length || 0} variant{product.variants?.length !== 1 ? 's' : ''}
                       </p>
                     </div>
                     <button onClick={() => openEdit(i)}
-                      className="text-xs text-[#E87121] hover:underline shrink-0 px-3 py-1.5
-                                 bg-[#E87121]/10 rounded-lg hover:bg-[#E87121]/20 transition-all">
+                      className="text-xs text-[#E87121] shrink-0 px-3 py-1.5 bg-[#E87121]/10 rounded-lg hover:bg-[#E87121]/20 transition-all">
                       ✏️ Edit
                     </button>
                   </div>
@@ -548,7 +529,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* ══ CUSTOMERS ══ */}
+          {/* CUSTOMERS */}
           {activeTab === 'customers' && (
             <div>
               <h1 className="text-xl font-bold text-white mb-6">Customers ({customers.length})</h1>
@@ -557,10 +538,8 @@ const AdminDashboard = () => {
                   <div className="bg-[#1e293b] rounded-2xl p-8 text-center text-gray-500">No customers yet</div>
                 )}
                 {customers.map((customer) => (
-                  <div key={customer.id}
-                    className="bg-[#1e293b] rounded-2xl p-4 border border-gray-700 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-orange-900/30 flex items-center
-                                    justify-center text-[#E87121] font-bold shrink-0">
+                  <div key={customer.id} className="bg-[#1e293b] rounded-2xl p-4 border border-gray-700 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-orange-900/30 flex items-center justify-center text-[#E87121] font-bold shrink-0">
                       {customer.photoURL
                         ? <img src={customer.photoURL} alt={customer.name} className="w-full h-full rounded-full object-cover" />
                         : (customer.name || customer.email || 'U')[0].toUpperCase()

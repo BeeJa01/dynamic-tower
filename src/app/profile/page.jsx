@@ -9,6 +9,7 @@ import { doc, updateDoc, collection, query, where, orderBy, getDocs } from 'fire
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { db, storage, auth } from '@/lib/firebase';
+import NotificationToggle from '@/components/NotificationToggle';
 
 const statusColor = (status) => ({
   delivered: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
@@ -228,6 +229,7 @@ export default function Profile() {
                   className="text-xs text-gray-400 hover:underline">Cancel</button>
               )}
             </div>
+            <NotificationToggle />
 
             {editing ? (
               <div className="flex flex-col gap-4">
@@ -294,7 +296,7 @@ export default function Profile() {
                               border border-gray-100 dark:border-gray-700">
                 <p className="text-5xl mb-3">🍽️</p>
                 <p className="font-bold text-gray-700 dark:text-white mb-1">No orders yet</p>
-                <p className="text-gray-400 text-sm mb-5">Place your first order and it'll appear here!</p>
+                <p className="text-gray-400 text-sm mb-5">Place your first order and it`ll appear here!</p>
                 <button onClick={() => router.push('/product')}
                   className="bg-[#E87121] text-white px-6 py-3 rounded-full
                              text-sm font-bold hover:bg-orange-600 transition-all">
