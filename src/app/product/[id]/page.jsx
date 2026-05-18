@@ -8,6 +8,85 @@ import { FOOD_ITEMS } from '@/data/FoodData';
 import { useCart } from '@/hooks/useCart';
 import ReviewSection from '@/components/ReviewSection';
 
+// ── Share Buttons Component ──────────────────────────────────────
+function ShareButtons({ product }) {
+  const [copied, setCopied] = useState(false);
+
+  const url     = typeof window !== 'undefined'
+    ? window.location.href
+    : `https://dynamic-tower.vercel.app/product/${product.id}`;
+  const text    = `🍽️ Check out ${product.name} on Dynamic Tower Foods!\nOrder now 👉 ${url}`;
+  const encoded = encodeURIComponent(text);
+  const urlOnly = encodeURIComponent(url);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback for older browsers
+      const el = document.createElement('textarea');
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const shares = [
+    {
+      label:   'WhatsApp',
+      icon:    '📱',
+      color:   'bg-green-500 hover:bg-green-600',
+      action:  () => window.open(`https://wa.me/?text=${encoded}`, '_blank'),
+    },
+    {
+      label:   'Facebook',
+      icon:    '📘',
+      color:   'bg-blue-600 hover:bg-blue-700',
+      action:  () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${urlOnly}`, '_blank'),
+    },
+    {
+      label:   'Twitter',
+      icon:    '🐦',
+      color:   'bg-sky-500 hover:bg-sky-600',
+      action:  () => window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank'),
+    },
+    {
+      label:   copied ? 'Copied!' : 'Copy Link',
+      icon:    copied ? '✅' : '🔗',
+      color:   copied ? 'bg-green-500' : 'bg-gray-600 hover:bg-gray-700',
+      action:  handleCopy,
+    },
+  ];
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5
+                    border border-gray-100 dark:border-gray-700 shadow-sm">
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">
+        Share this meal 🚀
+      </p>
+      <div className="grid grid-cols-4 gap-2">
+        {shares.map((s) => (
+          <button
+            key={s.label}
+            onClick={s.action}
+            className={`flex flex-col items-center justify-center gap-1.5 py-3 px-2
+                        rounded-2xl text-white transition-all active:scale-95 ${s.color}`}
+          >
+            <span className="text-xl leading-none">{s.icon}</span>
+            <span className="text-[9px] font-bold tracking-wide">{s.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ProductDetails({ params }) {
   const { id } = use(params);
   const { addToCart } = useCart();
@@ -133,6 +212,9 @@ export default function ProductDetails({ params }) {
             {product.description || "Freshly made — a classic choice for all ages."}
           </p>
         </div>
+
+        {/* Share Buttons */}
+        <ShareButtons product={product} />
 
         {/* Variant Selection */}
         {product.variants?.length > 0 && (
