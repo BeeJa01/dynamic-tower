@@ -187,7 +187,7 @@ function CakeVariantSelector({ product, onPriceChange }) {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-black
-                           flex items-center justify-center flex-shrink-0">1</span>
+                           flex items-center justify-center shrink-0">1</span>
           <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
             Choose Layers
           </h3>
@@ -220,7 +220,7 @@ function CakeVariantSelector({ product, onPriceChange }) {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-black
-                           flex items-center justify-center flex-shrink-0">2</span>
+                           flex items-center justify-center shrink-0">2</span>
           <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
             Choose Size
           </h3>
@@ -266,11 +266,11 @@ function CakeVariantSelector({ product, onPriceChange }) {
         </span>
       </div>
 
-      {/* Notes */}
+      {/* Notes
       <p className="text-[10px] text-gray-400 leading-relaxed">
         🎂 Vanilla, strawberry or red velvet as standard. Other flavours (chocolate, fruit cake, etc.) attract extra cost.
         Fondant & buttercream icing extra. Delivery, design complexity & rush orders extra.
-      </p>
+      </p>  */}
     </div>
   );
 }
