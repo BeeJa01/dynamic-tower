@@ -127,7 +127,7 @@ function RevenueChart({ orders }) {
 
       {/* SVG Chart */}
       <div className="w-full overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H + 30}`} className="w-full min-w-[300px]" style={{ height: 180 }}>
+        <svg viewBox={`0 0 ${W} ${H + 30}`} className="w-full min-w-75" style={{ height: 180 }}>
           <defs>
             <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%"   stopColor="#E87121" stopOpacity="0.4" />
@@ -813,7 +813,7 @@ const AdminDashboard = () => {
                         </div>
                         {form.variants.length === 0 && (
                           <p className="text-xs text-gray-600 text-center py-4 bg-[#0f172a] rounded-xl">
-                            No variants yet. Click "+ Add Variant" to add sizes or options.
+                            No variants yet. Click `+ Add Variant` to add sizes or options.
                           </p>
                         )}
                         <div className="flex flex-col gap-3">

@@ -3,11 +3,10 @@ import { AuthProvider } from '@/context/AuthProvider';
 import { CartProvider } from '@/context/CartProvider';
 import ConditionalLayout from '@/components/ConditionalLayout';
 import WhatsAppButton from '@/components/WhatsAppButton';
+import { baseMetadata } from '@/lib/metadata';
+import JsonLd from '@/components/JsonLd';
 
-export const metadata = {
-  title: 'DYNAMIC TOWER MULTIPURPOSE LTD',
-  description: 'Dynamic Tower - Hot meals delivered to your door in an hour or less.',
-};
+export const metadata = baseMetadata;
 
 export default function RootLayout({ children }) {
   return (
@@ -21,6 +20,7 @@ export default function RootLayout({ children }) {
           </CartProvider>
         </AuthProvider>
         <WhatsAppButton />
+        <JsonLd />
       </body>
     </html>
   );
