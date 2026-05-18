@@ -25,7 +25,6 @@ function ShareButtons({ product }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback for older browsers
       const el = document.createElement('textarea');
       el.value = url;
       document.body.appendChild(el);
@@ -39,28 +38,28 @@ function ShareButtons({ product }) {
 
   const shares = [
     {
-      label:   'WhatsApp',
-      icon:    '📱',
-      color:   'bg-green-500 hover:bg-green-600',
-      action:  () => window.open(`https://wa.me/?text=${encoded}`, '_blank'),
+      label:  'WhatsApp',
+      icon:   '📱',
+      color:  'bg-green-500 hover:bg-green-600',
+      action: () => window.open(`https://wa.me/?text=${encoded}`, '_blank'),
     },
     {
-      label:   'Facebook',
-      icon:    '📘',
-      color:   'bg-blue-600 hover:bg-blue-700',
-      action:  () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${urlOnly}`, '_blank'),
+      label:  'Facebook',
+      icon:   '📘',
+      color:  'bg-blue-600 hover:bg-blue-700',
+      action: () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${urlOnly}`, '_blank'),
     },
     {
-      label:   'Twitter',
-      icon:    '🐦',
-      color:   'bg-sky-500 hover:bg-sky-600',
-      action:  () => window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank'),
+      label:  'Twitter',
+      icon:   '🐦',
+      color:  'bg-sky-500 hover:bg-sky-600',
+      action: () => window.open(`https://twitter.com/intent/tweet?text=${encoded}`, '_blank'),
     },
     {
-      label:   copied ? 'Copied!' : 'Copy Link',
-      icon:    copied ? '✅' : '🔗',
-      color:   copied ? 'bg-green-500' : 'bg-gray-600 hover:bg-gray-700',
-      action:  handleCopy,
+      label:  copied ? 'Copied!' : 'Copy Link',
+      icon:   copied ? '✅' : '🔗',
+      color:  copied ? 'bg-green-500' : 'bg-gray-600 hover:bg-gray-700',
+      action: handleCopy,
     },
   ];
 
@@ -87,18 +86,212 @@ function ShareButtons({ product }) {
   );
 }
 
+// ── Hybrid Variant Selector (≤4 = cards, ≥5 = pills) ────────────
+function HybridVariantSelector({ variants, selectedVariant, onSelect }) {
+  const useCards = variants.length <= 4;
+
+  if (useCards) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-5
+                      border border-gray-100 dark:border-gray-700 shadow-sm">
+        <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">
+          Choose Variant
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {variants.map((variant, index) => {
+            const isSelected = selectedVariant?.label === variant.label;
+            return (
+              <button
+                key={index}
+                onClick={() => onSelect(variant)}
+                className={`flex flex-col items-start p-4 rounded-2xl border-2
+                            transition-all duration-200 active:scale-95 text-left
+                  ${isSelected
+                    ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20 shadow-md shadow-orange-500/10'
+                    : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 hover:border-orange-200'
+                  }`}
+              >
+                <span className={`text-sm font-black leading-tight mb-1
+                  ${isSelected ? 'text-orange-500' : 'text-gray-800 dark:text-gray-200'}`}>
+                  {variant.label}
+                </span>
+                {variant.weight && (
+                  <span className="text-[10px] text-gray-400 mb-2">{variant.weight}</span>
+                )}
+                <span className={`text-base font-black
+                  ${isSelected ? 'text-orange-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                  ₦{Number(variant.price)?.toLocaleString()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Pills layout for 5+ variants
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5
+                    border border-gray-100 dark:border-gray-700 shadow-sm">
+      <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">
+        Choose Variant
+      </h3>
+      <div className="flex flex-wrap gap-2">
+        {variants.map((variant, index) => {
+          const isSelected = selectedVariant?.label === variant.label;
+          return (
+            <button
+              key={index}
+              onClick={() => onSelect(variant)}
+              className={`flex flex-col items-center px-4 py-2.5 rounded-full border-2
+                          transition-all duration-200 active:scale-95
+                ${isSelected
+                  ? 'border-orange-400 bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                  : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:border-orange-300'
+                }`}
+            >
+              <span className="text-xs font-black">{variant.label}</span>
+              {variant.weight && (
+                <span className={`text-[9px] mt-0.5 ${isSelected ? 'text-orange-100' : 'text-gray-400'}`}>
+                  {variant.weight}
+                </span>
+              )}
+              <span className={`text-xs font-black mt-0.5 ${isSelected ? 'text-white' : 'text-orange-500'}`}>
+                ₦{Number(variant.price)?.toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Cake 2-Step Selector ─────────────────────────────────────────
+function CakeVariantSelector({ product, onPriceChange }) {
+  const [selectedLayer, setSelectedLayer] = useState(product.cakeLayers[0]);
+  const [selectedSize, setSelectedSize]   = useState(product.cakeSizes[0]);
+
+  const currentPrice = product.cakePrices[selectedLayer.key]?.[selectedSize] || 0;
+
+  useEffect(() => {
+    onPriceChange(currentPrice, `${selectedLayer.label} — ${selectedSize}`);
+  }, [selectedLayer, selectedSize]);
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5
+                    border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col gap-5">
+
+      {/* Step 1 — Layers */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-black
+                           flex items-center justify-center flex-shrink-0">1</span>
+          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Choose Layers
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {product.cakeLayers.map((layer) => {
+            const isSelected = selectedLayer.key === layer.key;
+            return (
+              <button
+                key={layer.key}
+                onClick={() => setSelectedLayer(layer)}
+                className={`py-3 px-4 rounded-xl border-2 font-black text-sm
+                            transition-all duration-200 active:scale-95
+                  ${isSelected
+                    ? 'border-orange-400 bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                    : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:border-orange-300'
+                  }`}
+              >
+                {layer.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="h-px bg-gray-100 dark:bg-gray-700" />
+
+      {/* Step 2 — Size */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-black
+                           flex items-center justify-center flex-shrink-0">2</span>
+          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            Choose Size
+          </h3>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {product.cakeSizes.map((size) => {
+            const isSelected = selectedSize === size;
+            const price = product.cakePrices[selectedLayer.key]?.[size];
+            return (
+              <button
+                key={size}
+                onClick={() => setSelectedSize(size)}
+                className={`flex flex-col items-center px-4 py-2.5 rounded-full border-2
+                            transition-all duration-200 active:scale-95
+                  ${isSelected
+                    ? 'border-orange-400 bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                    : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:border-orange-300'
+                  }`}
+              >
+                <span className="text-sm font-black">{size}</span>
+                <span className={`text-[10px] font-bold mt-0.5 ${isSelected ? 'text-orange-100' : 'text-orange-500'}`}>
+                  ₦{Number(price)?.toLocaleString()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Live price preview */}
+      <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl px-4 py-3
+                      border border-orange-100 dark:border-orange-800 flex items-center justify-between">
+        <div>
+          <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest block">
+            Selected
+          </span>
+          <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
+            {selectedLayer.label} — {selectedSize}
+          </span>
+        </div>
+        <span className="text-xl font-black text-orange-500">
+          ₦{currentPrice.toLocaleString()}
+        </span>
+      </div>
+
+      {/* Notes */}
+      <p className="text-[10px] text-gray-400 leading-relaxed">
+        🎂 Vanilla, strawberry or red velvet as standard. Other flavours (chocolate, fruit cake, etc.) attract extra cost.
+        Fondant & buttercream icing extra. Delivery, design complexity & rush orders extra.
+      </p>
+    </div>
+  );
+}
+
+// ── Main ProductDetails Page ─────────────────────────────────────
 export default function ProductDetails({ params }) {
   const { id } = use(params);
   const { addToCart } = useCart();
   const router = useRouter();
 
-  const [product, setProduct]           = useState(null);
-  const [loading, setLoading]           = useState(true);
+  const [product, setProduct]         = useState(null);
+  const [loading, setLoading]         = useState(true);
   const [selectedVariant, setSelectedVariant] = useState(null);
-  const [quantity, setQuantity]         = useState(1);
-  const [addedFlash, setAddedFlash]     = useState(false);
+  const [quantity, setQuantity]       = useState(1);
+  const [addedFlash, setAddedFlash]   = useState(false);
 
-  // ── Fetch from Firestore first, fallback to FoodData ────────
+  // For cake matrix — overrides selectedVariant price/label
+  const [cakePrice, setCakePrice]     = useState(0);
+  const [cakeLabel, setCakeLabel]     = useState('');
+
+  // ── Fetch from Firestore, fallback to FoodData ──────────────
   useEffect(() => {
     const fetchProduct = async () => {
       try {
@@ -108,16 +301,27 @@ export default function ProductDetails({ params }) {
           setProduct(data);
           setSelectedVariant(data.variants?.[0] || {});
         } else {
-          // Fallback to local FoodData
           const local = FOOD_ITEMS.find((item) => item.id === parseInt(id));
           setProduct(local || null);
           setSelectedVariant(local?.variants?.[0] || {});
+          // Init cake price
+          if (local?.cakeVariantType === 'matrix') {
+            const firstLayer = local.cakeLayers[0];
+            const firstSize  = local.cakeSizes[0];
+            setCakePrice(local.cakePrices[firstLayer.key][firstSize]);
+            setCakeLabel(`${firstLayer.label} — ${firstSize}`);
+          }
         }
-      } catch (err) {
-        // Network error — fallback to local
+      } catch {
         const local = FOOD_ITEMS.find((item) => item.id === parseInt(id));
         setProduct(local || null);
         setSelectedVariant(local?.variants?.[0] || {});
+        if (local?.cakeVariantType === 'matrix') {
+          const firstLayer = local.cakeLayers[0];
+          const firstSize  = local.cakeSizes[0];
+          setCakePrice(local.cakePrices[firstLayer.key][firstSize]);
+          setCakeLabel(`${firstLayer.label} — ${firstSize}`);
+        }
       } finally {
         setLoading(false);
       }
@@ -147,14 +351,31 @@ export default function ProductDetails({ params }) {
     </div>
   );
 
+  const isCakeMatrix = product.cakeVariantType === 'matrix';
+
+  // Resolve the effective price and label depending on product type
+  const effectivePrice = isCakeMatrix
+    ? cakePrice
+    : (selectedVariant?.price || product.price || 0);
+
+  const effectiveLabel = isCakeMatrix
+    ? cakeLabel
+    : (selectedVariant?.label || 'New');
+
+  const effectiveImage = isCakeMatrix
+    ? product.image
+    : (selectedVariant?.image || product.image);
+
+  const total = effectivePrice * quantity;
+
   const handleAddToCart = () => {
     addToCart({
       ...product,
       qty:             quantity,
-      selectedVariant: selectedVariant?.label || null,
-      price:           selectedVariant?.price || product.price,
-      total:           (selectedVariant?.price || product.price) * quantity,
-      image:           selectedVariant?.image || product.image,
+      selectedVariant: effectiveLabel,
+      price:           effectivePrice,
+      total:           total,
+      image:           effectiveImage,
     });
     setAddedFlash(true);
     setTimeout(() => setAddedFlash(false), 1500);
@@ -164,15 +385,13 @@ export default function ProductDetails({ params }) {
     addToCart({
       ...product,
       qty:             quantity,
-      selectedVariant: selectedVariant?.label || null,
-      price:           selectedVariant?.price || product.price,
-      total:           (selectedVariant?.price || product.price) * quantity,
-      image:           selectedVariant?.image || product.image,
+      selectedVariant: effectiveLabel,
+      price:           effectivePrice,
+      total:           total,
+      image:           effectiveImage,
     });
     router.push('/delivery-address');
   };
-
-  const total = (selectedVariant?.price || product.price || 0) * quantity;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-6 px-4">
@@ -189,14 +408,13 @@ export default function ProductDetails({ params }) {
         <div className="relative w-full rounded-3xl overflow-hidden bg-white dark:bg-gray-800
                         border border-gray-100 dark:border-gray-700 shadow-sm">
           <img
-            key={selectedVariant?.label}
-            src={selectedVariant?.image || product.image}
+            src={effectiveImage}
             alt={product.name}
             className="w-full h-72 object-cover transition-all duration-500"
           />
           <span className="absolute top-4 left-4 bg-orange-500 text-white text-[10px]
                            font-black uppercase px-3 py-1 rounded-full shadow-md">
-            {selectedVariant?.label || 'New'}
+            {effectiveLabel}
           </span>
           <span className="absolute top-4 right-4 bg-white/90 dark:bg-gray-900/90
                            text-orange-500 border border-orange-200 dark:border-orange-700
@@ -217,38 +435,23 @@ export default function ProductDetails({ params }) {
         {/* Share Buttons */}
         <ShareButtons product={product} />
 
-        {/* Variant Selection */}
-        {product.variants?.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5
-                          border border-gray-100 dark:border-gray-700 shadow-sm">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">
-              Choose Size
-            </h3>
-            <div className="grid grid-cols-3 gap-3">
-              {product.variants.map((variant, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedVariant(variant)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2
-                              transition-all duration-200 active:scale-95
-                    ${selectedVariant?.label === variant.label
-                      ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20 shadow-md shadow-orange-500/10'
-                      : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 hover:border-orange-200'
-                    }`}
-                >
-                  <span className={`text-sm font-black
-                    ${selectedVariant?.label === variant.label
-                      ? 'text-orange-500' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {variant.label}
-                  </span>
-                  <span className="text-[10px] text-gray-400 my-0.5">{variant.weight}</span>
-                  <span className="text-sm font-black text-orange-500">
-                    ₦{Number(variant.price)?.toLocaleString()}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* ── Variant Selector — cake gets 2-step, others get hybrid ── */}
+        {isCakeMatrix ? (
+          <CakeVariantSelector
+            product={product}
+            onPriceChange={(price, label) => {
+              setCakePrice(price);
+              setCakeLabel(label);
+            }}
+          />
+        ) : (
+          product.variants?.length > 0 && (
+            <HybridVariantSelector
+              variants={product.variants}
+              selectedVariant={selectedVariant}
+              onSelect={setSelectedVariant}
+            />
+          )
         )}
 
         {/* Checkout Row */}
@@ -298,6 +501,7 @@ export default function ProductDetails({ params }) {
 
         {/* Reviews */}
         <ReviewSection productId={product.id} />
+
       </div>
     </div>
   );

@@ -130,7 +130,7 @@ export const FOOD_ITEMS = [
     ],
   },
   { id: 15, name: 'Meatpie', price: 2000, category: 'Snacks',
-    description: 'Why order out when the chef comes to you? Our skilled personal chef arrives at your home or event, handles everything from prep to plating, and leaves your kitchen spotless. Pure luxury.',
+    description: 'Flaky, golden pastry filled with a savoury minced meat and vegetable filling. Warm, comforting and perfect as a snack or a light meal on the go.',
     image: '/meatpie.webp',
     variants: [
       { label: 'Jollof only', weight: 'Standard',  price: 3000, image: '/meatpie.webp' },
@@ -174,13 +174,26 @@ export const FOOD_ITEMS = [
       { label: 'Strawberry',  weight: '500g',  price: 3000,  image: '/Sharwarma.webp' },
     ],
   },
-  { id: 20, name: 'Cake', price: 10000, category: 'Snacks',
-    description: 'Moist, beautifully crafted layers of cake made to celebrate any moment — whether it\'s a birthday, a win, or just a Tuesday that deserves something special.',
+
+  // ── CAKE — 2-step variant: layers × size ───────────────────────────────
+  // Uses cakeVariantType: 'matrix' to trigger the special selector in ProductDetail
+  { id: 20, name: 'Cake', price: 12000, category: 'Snacks',
+    description: 'Moist, beautifully crafted layers of cake made to celebrate any moment — whether it\'s a birthday, a win, or just a Tuesday that deserves something special. Vanilla, strawberry or red velvet as standard; other flavours available at extra cost.',
     image: '/birthday.webp',
-    variants: [
-      { label: 'Milky',  weight: '150g',  price: 10000,   image: '/birthday.webp' },
-      { label: 'Chocolate', weight: '300g',  price: 10000,   image: '/birthday.webp' },
-      { label: 'Strawberry',  weight: '500g',  price: 10000,  image: '/birthday.webp' },
+    cakeVariantType: 'matrix',   // ← signals the 2-step selector
+    cakeLayers: [
+      { label: 'Single Layer', key: 'single' },
+      { label: 'Double Layer', key: 'double' },
+      { label: '3 Layers',     key: 'three'  },
+      { label: '4 Layers',     key: 'four'   },
     ],
+    cakeSizes: ['6"', '7"', '8"', '10"', '12"'],
+    // Price matrix: cakePrices[layerKey][size] = price in Naira
+    cakePrices: {
+      single: { '6"': 12000, '7"': 14000, '8"': 16000, '10"': 18500, '12"': 20500 },
+      double: { '6"': 23000, '7"': 26000, '8"': 30000, '10"': 35500, '12"': 39500 },
+      three:  { '6"': 35000, '7"': 39000, '8"': 45000, '10"': 52000, '12"': 58000 },
+      four:   { '6"': 45000, '7"': 50000, '8"': 55000, '10"': 65000, '12"': 70000 },
+    },
   },
 ];
