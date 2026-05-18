@@ -129,11 +129,11 @@ export default function ProductClient() {
                       {item.name}
                     </h3>
                     <FoodCardRating productId={item.id} />
-                    <button className="w-full mt-3 bg-orange-500 hover:bg-orange-600 active:scale-95
+                    <div className="w-full mt-3 bg-orange-500 hover:bg-orange-700 text-center group active:scale-95
                                        text-white py-2 rounded-xl font-bold text-xs transition-all
                                        shadow-sm shadow-orange-500/20">
                       View Details
-                    </button>
+                    </div>
                   </div>
                 </div>
               </Link>
