@@ -175,8 +175,6 @@ export const FOOD_ITEMS = [
     ],
   },
 
-  // ── CAKE — 2-step variant: layers × size ───────────────────────────────
-  // Uses cakeVariantType: 'matrix' to trigger the special selector in ProductDetail
   { id: 20, name: 'Cake', price: 12000, category: 'Snacks',
     description: 'Moist, beautifully crafted layers of cake made to celebrate any moment — whether it\'s a birthday, a win, or just a Tuesday that deserves something special. Vanilla, strawberry or red velvet as standard; other flavours available at extra cost.',
     image: '/birthday.webp',
@@ -188,12 +186,67 @@ export const FOOD_ITEMS = [
       { label: '4 Layers',     key: 'four'   },
     ],
     cakeSizes: ['6"', '7"', '8"', '10"', '12"'],
-    // Price matrix: cakePrices[layerKey][size] = price in Naira
+  
     cakePrices: {
       single: { '6"': 12000, '7"': 14000, '8"': 16000, '10"': 18500, '12"': 20500 },
       double: { '6"': 23000, '7"': 26000, '8"': 30000, '10"': 35500, '12"': 39500 },
       three:  { '6"': 35000, '7"': 39000, '8"': 45000, '10"': 52000, '12"': 58000 },
       four:   { '6"': 45000, '7"': 50000, '8"': 55000, '10"': 65000, '12"': 70000 },
+    },
+  },
+  {
+    id: 21, name: 'Zobo Drink', price: 400, category: 'Drinks',
+    description: 'Deep, bold, and naturally refreshing. Crafted from premium dried hibiscus petals and infused with local spices.',
+    image: '/zobolg.jpeg',
+    cakeVariantType: 'matrix',
+    cakeLayers: [
+      { label: 'Classic Ginger Punch', key: 'ginger' },
+      { label: 'Tropical Zobo Twist', key: 'tropical' },
+      { label: 'Zobo-Mint Cooler', key: 'mint' },
+    ],
+    cakeSizes: ['Small', 'Big', '1L', '5L'],
+    cakePrices: {
+      ginger: { 'Small': 400, 'Big': 1000, '1L': 1300, '5L': 6500 },
+      tropical: { 'Small': 400, 'Big': 1000, '1L': 1300, '5L': 6500 },
+      mint: { 'Small': 400, 'Big': 1000, '1L': 1300, '5L': 6500 },
+    },
+  },
+  {
+    id: 22, name: 'Tiger Nut Milk', price: 1500, category: 'Drinks',
+    description: 'Creamy, rich, and naturally sweet. A dairy-free, nutrient-dense powerhouse made from premium tiger nuts, dates, and coconuts.',
+    image: '/tigersm.jpeg',
+    cakeVariantType: 'matrix',
+    cakeLayers: [
+      { label: 'The Original Blend', key: 'original' },
+      { label: 'Vanilla-Nut Delight', key: 'vanilla' },
+      { label: 'Coconut-Cream Tiger Nut', key: 'coconut' },
+    ],
+    cakeSizes: ['50cl', '1L', '5L'],
+    cakePrices: {
+      original: { '50cl': 1500, '1L': 2000, '5L': 10000 },
+      vanilla: { '50cl': 1500, '1L': 2000, '5L': 10000 },
+      coconut: { '50cl': 1500, '1L': 2000, '5L': 10000 },
+    },
+  },
+  {
+    id: 23, name: 'Fresh Fruit Juice', price: 1200, category: 'Drinks',
+    description: '100% natural, freshly squeezed, and packed with vitamins. No added sugar, no artificial preservatives.',
+    image: '/citrus.jpg',
+    cakeVariantType: 'matrix',
+    cakeLayers: [
+      { label: 'Citrus Burst', key: 'citrus' },
+      { label: 'Green Cleanse', key: 'green' },
+      { label: 'Tropical Paradise', key: 'tropical' },
+      { label: 'Berry-Apple Bliss', key: 'berry' },
+      { label: 'Sunset Smoothie Juice', key: 'sunset' },
+    ],
+    cakeSizes: ['50cl', '1L'],
+    cakePrices: {
+      citrus: { '50cl': 1200, '1L': 2400 },
+      green: { '50cl': 1300, '1L': 2500 },
+      tropical: { '50cl': 1400, '1L': 2600 },
+      berry: { '50cl': 1500, '1L': 2800 },
+      sunset: { '50cl': 1500, '1L': 2800 },
     },
   },
 ];
