@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 
 const nutritionClientTypes = [
@@ -65,7 +65,8 @@ const serviceData = {
   retirements:    { title: "Retirement Service",       description: "Toast to your legacy with a remarkable celebration.", emoji: "🏆", categories: [{ id: 1, name: "Basic Package", qty: "20 plates of Jollof & Fried rice with chicken", price: 60000 }, { id: 2, name: "Premium Package", qty: "50 plates of Jollof & Fried rice with chicken", price: 147000 }]},
 };
 
-export default function BookingPage({ params: { serviceSlug } }) {
+export default function BookingPage({ params }) {
+  const { serviceSlug } = use(params);
   const router = useRouter();
   const currentService = serviceData[serviceSlug];
   const [selected, setSelected] = useState(null);
@@ -114,8 +115,8 @@ export default function BookingPage({ params: { serviceSlug } }) {
 
         {/* Nutrition-only: slogan + timeframe banner */}
         {isNutrition && (
-          <div className="bg-gradient-to-r from-green-50 to-orange-50 dark:from-green-900/20 dark:to-orange-900/20 rounded-2xl px-5 py-4 border border-green-100 dark:border-green-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <p className="text-green-700 dark:text-green-300 font-black text-sm italic">✨ "{currentService.slogan}"</p>
+          <div className="bg-linear-to-r from-green-50 to-orange-50 dark:from-green-900/20 dark:to-orange-900/20 rounded-2xl px-5 py-4 border border-green-100 dark:border-green-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p className="text-green-700 dark:text-green-300 font-black text-sm italic">✨ `{currentService.slogan}`</p>
             <span className="flex items-center gap-1.5 text-xs font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-3 py-1.5 rounded-full self-start sm:self-auto">
               ⏱️ {currentService.timeframe}
             </span>
@@ -185,7 +186,7 @@ export default function BookingPage({ params: { serviceSlug } }) {
           className={`w-full py-4 rounded-xl font-black text-sm transition-all active:scale-95 ${selected ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/25' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'}`}>
           {selected ? `✅ Book "${selected.name}" via WhatsApp` : 'Select a package to continue'}
         </button>
-        <p className="text-xs text-center text-gray-400 pb-4">We'll get back to you within 24 hours to confirm your booking details.</p>
+        <p className="text-xs text-center text-gray-400 pb-4">We`ll get back to you within 24 hours to confirm your booking details.</p>
       </div>
     </div>
   );
