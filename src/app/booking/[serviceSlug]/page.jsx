@@ -65,8 +65,7 @@ const serviceData = {
   retirements:    { title: "Retirement Service",       description: "Toast to your legacy with a remarkable celebration.", emoji: "🏆", categories: [{ id: 1, name: "Basic Package", qty: "20 plates of Jollof & Fried rice with chicken", price: 60000 }, { id: 2, name: "Premium Package", qty: "50 plates of Jollof & Fried rice with chicken", price: 147000 }]},
 };
 
-export default function BookingPage({ params }) {
-  const { serviceSlug } = params;
+export default function BookingPage({ params: { serviceSlug } }) {
   const router = useRouter();
   const currentService = serviceData[serviceSlug];
   const [selected, setSelected] = useState(null);
