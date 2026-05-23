@@ -96,7 +96,7 @@ const Footer = () => {
               title: "Legal",
               links: [
                 { label: "Privacy Notice", to: "/privacy" },
-                { label: "Cookie Policy", to: "/cookies-policy" },
+                { label: "Cookie Policy", to: "/cookie-policy" },
                 { label: "Terms & Conditions", to: "/terms" },
                 { label: "Preferences", to: "/preferences" },
               ],
