@@ -49,7 +49,7 @@ const serviceData = {
   "personal-chef":{ title: "Personal Chef",            description: "Professional culinary service at your home.", emoji: "👨‍🍳", categories: [{ id: 1, name: "One-Time Meal", qty: "Single Visit", price: 25000 }, { id: 2, name: "Weekly Meal Prep", qty: "3 Visits/Week", price: 70000 }, { id: 3, name: "Monthly", qty: "Once a meal", price: 300000 }]},
   corporate: {
     title: "Nutritional Consultation",
-    description: "",
+    description: "Personalized dietary guidance and meal planning designed to help you smash your health goals sustainably.",
     emoji: "🥗",
     slogan: "Your body goals, our priority.",
     timeframe: "3 hours per session",
